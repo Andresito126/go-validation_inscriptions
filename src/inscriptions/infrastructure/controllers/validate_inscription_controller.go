@@ -1,4 +1,3 @@
-// src/api2/infrastructure/controllers/validate_inscription_controller.go
 package controllers
 
 import (
@@ -46,12 +45,11 @@ func (c *ValidateInscriptionController) Handle(message []byte) {
 
     log.Printf("Procesando inscripción: ID=%d, StudentID=%d, CourseID=%d", inscription.ID, inscription.StudentID, inscription.CourseID)
 
-    // valida la inscripción 
+    // validación
     if err := c.useCase.Run(&inscription); err != nil {
         log.Printf("Error al validar la inscripción: %v", err)
         return
     }
 
-    
     log.Printf("Inscripción validada: ID=%d, Status=%s", inscription.ID, inscription.Status)
 }

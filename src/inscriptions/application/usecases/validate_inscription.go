@@ -1,6 +1,5 @@
 package usecases
 
-
 import (
     "github.com/Andresito126/go-validation_inscriptions/src/inscriptions/domain/entities"
     "github.com/Andresito126/go-validation_inscriptions/src/inscriptions/domain/ports"
@@ -17,15 +16,15 @@ func NewValidateInscriptionUseCase(validationRepo ports.IValidationRepository) *
 }
 
 func (uc *ValidateInscriptionUseCase) Run(inscription *entities.Inscription) error {
- 	// validar inscrip
+    // valida inscripcion
     status, err := uc.validationRepo.Validate(inscription.ID)
     if err != nil {
         return err
     }
 
-    
+    //actualiza el stattus pa la bd
     inscription.Status = status
 
-    // actualiza el status
+    
     return uc.validationRepo.UpdateStatus(inscription.ID, status)
 }
