@@ -23,7 +23,7 @@ func NewValidateInscriptionController(useCase *usecases.ValidateInscriptionUseCa
 }
 
 func (c *ValidateInscriptionController) Start() {
-    log.Println("Iniciando el consumo de mensajes de reabit...")
+    log.Println("Iniciando el consumo de mensajes de RabbitMQ...")
     err := c.rabbitService.Consume("inscriptionsQueue", c.Handle)
     if err != nil {
         log.Fatalf("Error al consumir mensajes: %v", err)
@@ -39,12 +39,19 @@ func (c *ValidateInscriptionController) Handle(message []byte) {
         return
     }
 
+    if inscription.ID <= 0 {
+        log.Printf("ID de inscripción inválido: %d", inscription.ID)
+        return
+    }
+
     log.Printf("Procesando inscripción: ID=%d, StudentID=%d, CourseID=%d", inscription.ID, inscription.StudentID, inscription.CourseID)
 
+    // valida la inscripción 
     if err := c.useCase.Run(&inscription); err != nil {
         log.Printf("Error al validar la inscripción: %v", err)
         return
     }
 
+    
     log.Printf("Inscripción validada: ID=%d, Status=%s", inscription.ID, inscription.Status)
 }
