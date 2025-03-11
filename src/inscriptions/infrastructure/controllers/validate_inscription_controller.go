@@ -1,55 +1,52 @@
 package controllers
 
 import (
-    "encoding/json"
-    "log"
+    
+    "net/http"
 
     "github.com/Andresito126/go-validation_inscriptions/src/inscriptions/application/usecases"
     "github.com/Andresito126/go-validation_inscriptions/src/inscriptions/domain/entities"
-    "github.com/Andresito126/go-validation_inscriptions/src/inscriptions/application/services"
+    "github.com/gin-gonic/gin"
 )
 
 type ValidateInscriptionController struct {
-    useCase        *usecases.ValidateInscriptionUseCase
-    rabbitService  *services.RabbitService
+    validateUseCase    *usecases.ValidateInscriptionUseCase
+    updateStatusUseCase *usecases.UpdateInscriptionStatusUseCase
 }
 
-func NewValidateInscriptionController(useCase *usecases.ValidateInscriptionUseCase, rabbitService *services.RabbitService) *ValidateInscriptionController {
+func NewValidateInscriptionController(validateUseCase *usecases.ValidateInscriptionUseCase, updateStatusUseCase *usecases.UpdateInscriptionStatusUseCase) *ValidateInscriptionController {
     return &ValidateInscriptionController{
-        useCase:       useCase,
-        rabbitService: rabbitService,
+        validateUseCase:    validateUseCase,
+        updateStatusUseCase: updateStatusUseCase,
     }
 }
 
-func (c *ValidateInscriptionController) Start() {
-    log.Println("Iniciando el consumo de mensajes de RabbitMQ...")
-    err := c.rabbitService.Consume("inscriptionsQueue", c.Handle)
-    if err != nil {
-        log.Fatalf("Error al consumir mensajes: %v", err)
-    }
-}
-
-func (c *ValidateInscriptionController) Handle(message []byte) {
-    log.Printf("Mensaje recibido: %s", string(message))
-
+// handle para los casos de uso
+func (c *ValidateInscriptionController) HandleHTTP(ctx *gin.Context) {
     var inscription entities.Inscription
-    if err := json.Unmarshal(message, &inscription); err != nil {
-        log.Printf("Error al deserializar el mensaje: %v", err)
+    if err := ctx.ShouldBindJSON(&inscription); err != nil {
+        ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON"})
         return
     }
 
-    if inscription.ID <= 0 {
-        log.Printf("ID de inscripción inválido: %d", inscription.ID)
+    // validacion de la inscripcion
+    status, err := c.validateUseCase.Run(&inscription)
+    if err != nil {
+        if status == "rechazada" {
+            ctx.JSON(http.StatusOK, gin.H{"status": "rechazada", "message": err.Error()})
+        } else {
+            ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Error validating inscription"})
+        }
         return
     }
 
-    log.Printf("Procesando inscripción: ID=%d, StudentID=%d, CourseID=%d", inscription.ID, inscription.StudentID, inscription.CourseID)
-
-    // validación
-    if err := c.useCase.Run(&inscription); err != nil {
-        log.Printf("Error al validar la inscripción: %v", err)
+    // actualizacion en la bd
+    if err := c.updateStatusUseCase.Run(&inscription, status); err != nil {
+        ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating inscription status"})
         return
     }
 
-    log.Printf("Inscripción validada: ID=%d, Status=%s", inscription.ID, inscription.Status)
+    // respuesta
+    ctx.JSON(http.StatusOK, gin.H{"status": status})
 }
+
