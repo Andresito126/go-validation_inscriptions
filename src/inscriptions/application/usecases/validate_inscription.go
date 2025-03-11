@@ -15,16 +15,11 @@ func NewValidateInscriptionUseCase(validationRepo ports.IValidationRepository) *
     }
 }
 
-func (uc *ValidateInscriptionUseCase) Run(inscription *entities.Inscription) error {
-    // valida inscripcion
+func (uc *ValidateInscriptionUseCase) Run(inscription *entities.Inscription) (string, error) {
     status, err := uc.validationRepo.Validate(inscription.ID)
     if err != nil {
-        return err
+        return "", err
     }
 
-    //actualiza el stattus pa la bd
-    inscription.Status = status
-
-    
-    return uc.validationRepo.UpdateStatus(inscription.ID, status)
+    return status, nil
 }

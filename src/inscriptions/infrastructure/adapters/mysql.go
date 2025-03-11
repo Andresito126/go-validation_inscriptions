@@ -1,8 +1,8 @@
-// src/api2/infrastructure/adapters/mysql.go
 package adapters
 
 import (
-    "database/sql" 
+    "database/sql"
+    "fmt"
 )
 
 type MySQLAdapter struct {
@@ -14,16 +14,32 @@ func NewMySQLAdapter(db *sql.DB) *MySQLAdapter {
 }
 
 func (a *MySQLAdapter) Validate(inscriptionID int) (string, error) {
-    // get courseid
-    var courseID int
+    var courseID, studentID int
+
+   // get courseid y studentid
     err := a.db.QueryRow(`
-        SELECT course_id 
+        SELECT course_id, student_id 
         FROM inscriptions 
         WHERE id = ?
-    `, inscriptionID).Scan(&courseID)
+    `, inscriptionID).Scan(&courseID, &studentID)
     if err != nil {
         return "", err
     }
+
+    // primer validacion de saber esta en el mismo curso
+    var existingID int
+    err = a.db.QueryRow(`
+        SELECT id FROM inscriptions 
+        WHERE course_id = ? AND student_id = ? AND status = 'aceptada'
+    `, courseID, studentID).Scan(&existingID)
+    if err == nil {
+        fmt.Println(" Estudiante ya inscrito en este curso, rechazando inscripción ID:", inscriptionID)
+        return "rechazada", nil 
+    } else if err != sql.ErrNoRows {
+        fmt.Println("Error en consulta SQL:", err)
+        return "", err
+    }
+    
 
     // verificar cupo
     var availableSlots int
@@ -37,10 +53,11 @@ func (a *MySQLAdapter) Validate(inscriptionID int) (string, error) {
     }
 
     if availableSlots <= 0 {
-        return "rechazada", nil 
+        return "rechazada", nil
     }
 
-    // quita uno al cruso
+     // quita uno al cruso
+    //verificacion de cupo
     _, err = a.db.Exec(`
         UPDATE courses 
         SET available_slots = available_slots - 1 
@@ -50,8 +67,9 @@ func (a *MySQLAdapter) Validate(inscriptionID int) (string, error) {
         return "", err
     }
 
-    return "aceptada", nil 
+    return "aceptada", nil
 }
+
 
 func (a *MySQLAdapter) UpdateStatus(inscriptionID int, status string) error {
     _, err := a.db.Exec(`
