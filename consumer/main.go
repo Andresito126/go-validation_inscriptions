@@ -52,7 +52,7 @@ func ProcessMessage(msgs <-chan amqp.Delivery) {
 
 // realizar el post a la api2
 func Fetch(inscription models.Inscription) {
-	url := "44.194.176.57:8081/inscriptions/validate" 
+	url := "http://4.194.176.57:8081/inscriptions/validate" 
 
 	// vualve el objeto a JSON
 	jsonPayload, err := json.Marshal(inscription)
